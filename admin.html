@@ -8,10 +8,14 @@
   </head>
   <body class="min-h-screen bg-gray-50">
     <script src="./config.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <main class="mx-auto max-w-6xl px-4 py-6">
       <header class="mb-6 flex items-center justify-between">
         <h1 class="text-lg font-semibold">Quản trị bảo hành</h1>
         <div class="flex items-center gap-2">
+          <div id="signin-section" class="hidden">
+            <div id="g_id_signin"></div>
+          </div>
           <button id="logoutBtn" class="rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-100">Đăng xuất</button>
         </div>
       </header>
@@ -116,6 +120,49 @@
     </div>
 
     <script>
+      // --- Google Identity Services (Sign in with Google) ---
+      function setSignedInUI(signedIn){
+        const gate = document.getElementById('loginGate');
+        const signInSection = document.getElementById('signin-section');
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (signedIn){
+          gate?.classList.add('hidden'); gate?.classList.remove('flex');
+          signInSection?.classList.add('hidden');
+          logoutBtn?.classList.remove('hidden');
+          localStorage.setItem('admin_authed','1');
+        } else {
+          signInSection?.classList.remove('hidden');
+          logoutBtn?.classList.add('hidden');
+          localStorage.removeItem('admin_authed');
+        }
+      }
+
+      window.handleCredentialResponse = async (response) => {
+        try {
+          const idToken = response?.credential;
+          if (!idToken){ toast('Không nhận được token từ Google','error'); return setSignedInUI(false); }
+          if (!window.GAS_URL){ setSignedInUI(true); return; }
+          const res = await fetch(window.GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ action:'adminLogin' })
+          });
+          if (!res.ok){ const t = await res.text(); toast('Xác thực thất bại: ' + t, 'error'); return setSignedInUI(false); }
+          setSignedInUI(true);
+        } catch (err){ toast('Lỗi đăng nhập: ' + (err?.message||err), 'error'); setSignedInUI(false); }
+      };
+
+      window.addEventListener('load', () => {
+        try{
+          if (window.GIS_CLIENT_ID){
+            google.accounts.id.initialize({ client_id: window.GIS_CLIENT_ID, callback: handleCredentialResponse });
+            const el = document.getElementById('g_id_signin');
+            if (el){ google.accounts.id.renderButton(el, { theme: 'outline', size: 'large' }); }
+            // google.accounts.id.prompt(); // optional One Tap
+          }
+        } catch {}
+      });
+    </script>
       // Toast helper
       function toast(message, variant){
         const box = document.getElementById('toasts');
@@ -351,30 +398,10 @@
         render(await loadOrders());
       })();
 
-      // --- Simple client-side auth gate (fixed credentials) ---
-      function isAuthed(){
-        return localStorage.getItem('admin_authed') === '1';
-      }
-      function ensureAuth(){
-        if (isAuthed()) return;
-        gate.classList.remove('hidden');
-        gate.classList.add('flex');
-      }
-      gateForm.addEventListener('submit', (e)=>{
-        e.preventDefault();
-        gateErr.classList.add('hidden');
-        const u = document.getElementById('gateUser').value.trim();
-        const p = document.getElementById('gatePw').value;
-        const ok = (u === 'admin' && p === 'admin123');
-        if (!ok){ gateErr.textContent = 'Sai tài khoản hoặc mật khẩu'; gateErr.classList.remove('hidden'); return; }
-        localStorage.setItem('admin_authed','1');
-        gate.classList.add('hidden');
-        gate.classList.remove('flex');
-      });
-      document.getElementById('logoutBtn').addEventListener('click', ()=>{
-        localStorage.removeItem('admin_authed');
-        ensureAuth();
-      });
+      // --- Replace simple gate with Google Sign-in gate ---
+      function isAuthed(){ return localStorage.getItem('admin_authed') === '1'; }
+      function ensureAuth(){ if (isAuthed()) return; setSignedInUI(false); gate.classList.add('hidden'); gate.classList.remove('flex'); }
+      document.getElementById('logoutBtn').addEventListener('click', ()=>{ setSignedInUI(false); });
       ensureAuth();
     </script>
   <script>
