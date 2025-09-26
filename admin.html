@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin - Bảo hành</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-gray-50">
+    <script src="./config.js"></script>
+    <main class="mx-auto max-w-6xl px-4 py-6">
+      <header class="mb-6 flex items-center justify-between">
+        <h1 class="text-lg font-semibold">Quản trị bảo hành</h1>
+        <div class="flex items-center gap-2">
+          <button id="logoutBtn" class="rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-100">Đăng xuất</button>
+        </div>
+      </header>
+
+      <div class="mb-4 flex gap-2">
+        <button id="tabAll" class="rounded border border-gray-300 px-3 py-2 text-sm bg-black text-white">Tất cả</button>
+        <button id="tabPending" class="rounded border border-gray-300 px-3 py-2 text-sm">Chờ duyệt</button>
+      </div>
+      <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-lg">
+          <h2 class="mb-3 text-base font-semibold">Tạo / Cập nhật đơn</h2>
+          <form id="form" class="grid grid-cols-1 gap-4">
+            <div class="space-y-1">
+              <label class="text-sm font-medium" for="orderId">Mã đơn</label>
+              <div class="flex gap-2">
+                <input id="orderId" class="h-11 flex-1 rounded-lg border border-gray-300 px-3 text-sm" placeholder="Để trống để tự tạo" />
+                <button type="button" id="genId" class="h-11 rounded-lg border border-gray-300 px-3 text-sm hover:bg-gray-100">Tạo mã</button>
+              </div>
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm font-medium" for="customerName">Tên khách</label>
+              <input id="customerName" class="h-11 rounded-lg border border-gray-300 px-3 text-sm" required />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <label class="text-sm font-medium" for="startDate">Ngày bắt đầu</label>
+                  <label class="flex items-center gap-2 text-xs text-gray-600"><input id="useToday" type="checkbox" class="h-4 w-4" checked /> Dùng hôm nay</label>
+                </div>
+                <input id="startDate" type="date" class="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm" required />
+              </div>
+              <div class="space-y-1">
+                <label class="text-sm font-medium" for="warrantyDays">Số ngày bảo hành</label>
+                <input id="warrantyDays" type="number" min="0" class="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm" value="7" required />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <label class="text-sm font-medium" for="pricePerDay">Giá/Ngày (VND)</label>
+                <input id="pricePerDay" type="number" min="0" class="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm" value="0" />
+              </div>
+              <div class="space-y-1">
+                <label class="text-sm font-medium" for="paymentStatus">Trạng thái thanh toán</label>
+                <select id="paymentStatus" class="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                  <option value="">--</option>
+                  <option value="pending">Chờ duyệt</option>
+                  <option value="paid">Đã thanh toán</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button class="inline-flex h-11 items-center justify-center rounded-lg bg-black px-4 text-sm font-medium text-white hover:bg-black/90">Lưu</button>
+              <button id="deleteBtn" type="button" class="inline-flex h-11 items-center justify-center rounded-lg border border-red-300 bg-red-50 px-4 text-sm font-medium text-red-700 hover:bg-red-100">Xoá</button>
+            </div>
+            <p id="msg" class="text-sm text-gray-600"></p>
+          </form>
+        </div>
+
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-lg">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-base font-semibold">Danh sách đơn</h2>
+            <input id="q" placeholder="Tìm nhanh..." class="h-10 rounded-lg border border-gray-300 px-3 text-sm" />
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b">
+                  <th class="px-3 py-2 text-left">Mã đơn</th>
+                  <th class="px-3 py-2 text-left">Khách</th>
+                  <th class="px-3 py-2 text-left">Bắt đầu</th>
+                  <th class="px-3 py-2 text-left">Hết hạn</th>
+                  <th class="px-3 py-2 text-left">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Toasts -->
+    <div id="toasts" class="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2"></div>
+
+    <!-- Login overlay (client-side gate) -->
+    <div id="loginGate" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+      <div class="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+        <h2 class="mb-4 text-center text-base font-semibold">Đăng nhập quản trị</h2>
+        <form id="gateForm" class="space-y-3">
+          <div class="space-y-1">
+            <label class="text-sm font-medium" for="gateUser">Tài khoản</label>
+            <input id="gateUser" type="text" class="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm" required />
+          </div>
+          <div class="space-y-1">
+            <label class="text-sm font-medium" for="gatePw">Mật khẩu</label>
+            <input id="gatePw" type="password" class="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm" required />
+          </div>
+          <button class="inline-flex h-11 w-full items-center justify-center rounded-lg bg-black px-4 text-sm font-medium text-white hover:bg-black/90">Đăng nhập</button>
+          <div id="gateErr" class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // Toast helper
+      function toast(message, variant){
+        const box = document.getElementById('toasts');
+        if (!box) return;
+        const el = document.createElement('div');
+        const styles = variant==='error' ? 'bg-red-600 text-white' : variant==='warn' ? 'bg-yellow-500 text-white' : 'bg-black text-white';
+        el.className = `pointer-events-auto rounded-lg px-3 py-2 text-sm shadow-lg ${styles}`;
+        el.textContent = message;
+        box.appendChild(el);
+        setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=> el.remove(), 300); }, 1800);
+      }
+      function normName(s){ return s.trim().toLowerCase().replace(/\s+/g,' '); }
+      function fmt(d){ try{ return new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }).format(d); }catch{ return d.toISOString().slice(0,10);} }
+      function toLocalMidnight(dateStr){
+        // dateStr: YYYY-MM-DD → local midnight
+        const [y,m,d] = dateStr.split('-').map(Number);
+        return new Date(y, (m||1)-1, d||1, 0,0,0,0);
+      }
+      function addDaysEndOfDay(startDate, days){
+        const end = new Date(startDate.getTime());
+        end.setDate(end.getDate() + days); // inclusive end: days after start at 00:00
+        end.setHours(23,59,59,999); // end of day
+        return end;
+      }
+      function generateOrderId(){
+        const now = new Date();
+        const pad = (n)=> String(n).padStart(2,'0');
+        const id = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+        const rand = Array.from(crypto.getRandomValues(new Uint8Array(3))).map(b=> (b%36).toString(36).toUpperCase()).join('');
+        return `${id}-${rand}`;
+      }
+      function normalizeDateString(input){
+        if (!input) return '';
+        // If already YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
+        // Try to handle MM/DD/YYYY or DD/MM/YYYY
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(input)){
+          const [a,b,y] = input.split('/').map(Number);
+          // If first > 12, treat as DD/MM/YYYY else MM/DD/YYYY
+          const d = a > 12 ? a : b;
+          const m = a > 12 ? b : a;
+          const mm = String(m).padStart(2,'0');
+          const dd = String(d).padStart(2,'0');
+          return `${y}-${mm}-${dd}`;
+        }
+        // Fallback via Date()
+        const dt = new Date(input);
+        if (!isNaN(dt.getTime())){
+          const y = dt.getFullYear();
+          const mm = String(dt.getMonth()+1).padStart(2,'0');
+          const dd = String(dt.getDate()).padStart(2,'0');
+          return `${y}-${mm}-${dd}`;
+        }
+        return '';
+      }
+      async function loadOrders(){
+        if (window.GAS_URL){
+          try { const res = await fetch(window.GAS_URL); const j = await res.json(); if (j.ok) return j.data; } catch {}
+        }
+        try{ return JSON.parse(localStorage.getItem('warranty_orders')||'[]'); }catch{ return []; }
+      }
+      async function saveOrders(list, changed){
+        if (window.GAS_URL && changed){
+          try {
+            toast('Đồng bộ Google Sheet...', 'warn');
+            const res = await fetch(window.GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action:'createOrUpdate', record: changed }) });
+            if (res.ok) {
+              toast('Đã đồng bộ Google Sheet');
+              setTimeout(()=> location.reload(), 400);
+            } else {
+              toast('Lỗi đồng bộ Google Sheet', 'error');
+            }
+          } catch { /* ignore */ }
+        }
+        localStorage.setItem('warranty_orders', JSON.stringify(list));
+      }
+
+      const rows = document.getElementById('rows');
+      const q = document.getElementById('q');
+      const form = document.getElementById('form');
+      const msg = document.getElementById('msg');
+      const del = document.getElementById('deleteBtn');
+      const genIdBtn = document.getElementById('genId');
+      const useToday = document.getElementById('useToday');
+      const pricePerDayEl = document.getElementById('pricePerDay');
+      const paymentStatusEl = document.getElementById('paymentStatus');
+      const gate = document.getElementById('loginGate');
+      const gateForm = document.getElementById('gateForm');
+      const gateErr = document.getElementById('gateErr');
+      
+
+      let showPendingOnly = false;
+      function render(list){
+        const kw = (q.value||'').toLowerCase();
+        rows.innerHTML = '';
+        list
+          .filter(o => o.orderId.toLowerCase().includes(kw) || o.customerName.toLowerCase().includes(kw))
+          .filter(o => !showPendingOnly || o.paymentStatus === 'pending')
+          .sort((a,b)=> new Date(b.startDate)-new Date(a.startDate))
+          .forEach(o => {
+            const startStr = normalizeDateString(String(o.startDate||''));
+            const start = startStr ? toLocalMidnight(startStr) : new Date();
+            const expiry = addDaysEndOfDay(start, Number(o.warrantyDays||0));
+            const expired = (Number(o.warrantyDays) <= 0) || (new Date() > expiry);
+            const tr = document.createElement('tr');
+            const locked = !!o.locked;
+            tr.className = 'border-b ' + (locked ? 'bg-yellow-50' : expired ? 'bg-red-50' : '');
+            const remainingDays = Math.max(0, Number(o.warrantyDays||0));
+            tr.innerHTML = `
+              <td class="px-3 py-2 font-medium">${o.orderId}</td>
+              <td class="px-3 py-2">${o.customerName}</td>
+              <td class="px-3 py-2">${fmt(start)}</td>
+              <td class="px-3 py-2">${fmt(expiry)}</td>
+              <td class="px-3 py-2">
+                ${locked ? `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-yellow-200 text-yellow-900">Bị khóa</span>` : `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${expired?'bg-red-100 text-red-800':'bg-green-100 text-green-800'}">${expired?'Hết hạn':'Còn bảo hành'}</span>`}
+                ${locked && o.lockReason ? `<div class="mt-1 text-xs text-gray-600">Lý do: ${o.lockReason}</div>` : ''}
+                <div class="mt-1 text-xs text-gray-700">Còn lại: ${remainingDays} ngày</div>
+                ${o.paymentStatus ? `<div class="mt-1 text-xs ${o.paymentStatus==='paid'?'text-green-700':'text-orange-600'}">Thanh toán: ${o.paymentStatus==='paid'?'Đã thanh toán':'Chờ duyệt'}</div>`:''}
+                ${o.pendingDays ? `<div class=\"mt-1 text-xs text-gray-700\">Đang chờ cộng thêm: ${o.pendingDays} ngày (${(o.pendingAmount||0).toLocaleString('vi-VN')} VND)</div>`:''}
+                ${o.receiptDataUrl ? `<img src=\"${o.receiptDataUrl}\" class=\"mt-2 h-24 w-24 rounded border object-cover\" alt=\"Biên lai\"/>`:''}
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex flex-wrap gap-1">
+                  <button class="rounded-md border px-2 py-1 text-xs" data-act="decPrompt" data-id="${o.orderId}">Giảm ngày</button>
+                  <button class="rounded-md border px-2 py-1 text-xs bg-red-50" data-act="expire" data-id="${o.orderId}">Hết hạn</button>
+                  ${locked ? `<button class=\"rounded-md border px-2 py-1 text-xs bg-green-50\" data-act=\"unlock\" data-id=\"${o.orderId}\">Mở khóa</button>` : `<button class=\"rounded-md border px-2 py-1 text-xs bg-yellow-50\" data-act=\"lock\" data-id=\"${o.orderId}\">Khóa</button>`}
+                  <button class="rounded-md border px-2 py-1 text-xs" data-act="approve" data-id="${o.orderId}">Phê duyệt</button>
+                  <button class="rounded-md border px-2 py-1 text-xs" data-act="reject" data-id="${o.orderId}">Từ chối</button>
+                </div>
+              </td>
+            `;
+            tr.addEventListener('click', ()=>{
+              document.getElementById('orderId').value = o.orderId;
+              document.getElementById('customerName').value = o.customerName;
+              document.getElementById('startDate').value = new Date(o.startDate).toISOString().slice(0,10);
+              document.getElementById('warrantyDays').value = o.warrantyDays;
+              pricePerDayEl.value = o.pricePerDay || 0;
+              paymentStatusEl.value = o.paymentStatus || '';
+            });
+            tr.querySelectorAll('button[data-act]')?.forEach(btn=>{
+              btn.addEventListener('click', async (ev)=>{
+                ev.stopPropagation();
+                const id = btn.getAttribute('data-id');
+                const act = btn.getAttribute('data-act');
+                const daysAttr = btn.getAttribute('data-days');
+                const days = parseInt(daysAttr||'0',10);
+                let list = await loadOrders();
+                const idx = list.findIndex(x=> x.orderId===id);
+                if (idx<0) return;
+                const rec = {...list[idx]};
+                if (act==='decPrompt') {
+                  const val = prompt('Nhập số ngày cần giảm (số nguyên dương):');
+                  const n = parseInt(String(val||'').trim(),10);
+                  if (isNaN(n) || n <= 0) return;
+                  rec.warrantyDays = Math.max(0, (parseInt(rec.warrantyDays,10)||0) - n);
+                  toast(`Đã trừ ${n} ngày cho ${id}`);
+                }
+                if (act==='expire') { rec.warrantyDays = 0; toast(`Đã đặt trạng thái Hết hạn cho ${id}`, 'warn'); }
+                if (act==='lock') { const reason = prompt('Lý do khóa mã đơn này?'); if (!reason) return; rec.locked = true; rec.lockReason = reason; toast(`Đã khóa ${id}`, 'warn'); }
+                if (act==='unlock') { rec.locked = false; rec.lockReason = ''; toast(`Đã mở khóa ${id}`); }
+                if (act==='approve') { if (rec.paymentStatus==='pending'){ rec.paymentStatus='paid'; rec.warrantyDays = Number(rec.warrantyDays||0) + Number(rec.pendingDays||0); rec.pendingDays=0; rec.pendingAmount=0; toast('Đã phê duyệt thanh toán'); } }
+                if (act==='reject') { rec.paymentStatus=''; rec.pendingDays=0; rec.pendingAmount=0; toast('Đã từ chối thanh toán','warn'); }
+                list[idx] = rec;
+                await saveOrders(list, rec);
+                render(await loadOrders());
+              });
+            });
+            rows.appendChild(tr);
+          });
+      }
+
+      q.addEventListener('input', async ()=> render(await loadOrders()));
+      document.getElementById('tabAll').addEventListener('click', async ()=>{ showPendingOnly=false; document.getElementById('tabAll').classList.add('bg-black','text-white'); document.getElementById('tabPending').classList.remove('bg-black','text-white'); render(await loadOrders()); });
+      document.getElementById('tabPending').addEventListener('click', async ()=>{ showPendingOnly=true; document.getElementById('tabPending').classList.add('bg-black','text-white'); document.getElementById('tabAll').classList.remove('bg-black','text-white'); render(await loadOrders()); });
+
+      genIdBtn.addEventListener('click', ()=>{
+        const input = document.getElementById('orderId');
+        input.value = generateOrderId();
+        toast('Đã tạo mã đơn mới');
+      });
+
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        let id = document.getElementById('orderId').value.trim();
+        const name = document.getElementById('customerName').value.trim();
+        let start = document.getElementById('startDate').value;
+        const days = parseInt(document.getElementById('warrantyDays').value||'0',10);
+        if(!name || !start || isNaN(days)){ msg.textContent='Thiếu thông tin'; return; }
+        if(!id) id = generateOrderId();
+        start = normalizeDateString(start);
+        if (!start){ msg.textContent='Ngày bắt đầu không hợp lệ'; return; }
+        const list = await loadOrders();
+        const idx = list.findIndex(x=> x.orderId===id);
+        const rec = { orderId:id, customerName:name, customerNameNorm:normName(name), startDate:start, warrantyDays:days, pricePerDay: Number(pricePerDayEl.value||0), paymentStatus: paymentStatusEl.value };
+        if (idx>=0) list[idx]=rec; else list.push(rec);
+        await saveOrders(list, rec);
+        msg.textContent='Đã lưu';
+        toast(idx>=0 ? `Đã cập nhật đơn ${id}` : `Đã tạo đơn ${id}`);
+        render(await loadOrders());
+      });
+
+      del.addEventListener('click', async ()=>{
+        const id = document.getElementById('orderId').value.trim();
+        if(!id) { msg.textContent='Nhập mã đơn để xoá'; return; }
+        if(!confirm('Xoá đơn này?')) return;
+        const list = (await loadOrders()).filter(x=> x.orderId!==id);
+        if (window.GAS_URL){
+          try { 
+            toast('Đồng bộ xoá lên Google Sheet...','warn');
+            const r = await fetch(window.GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action:'delete', orderId:id }) });
+            if (r.ok) { toast('Đã đồng bộ xoá'); setTimeout(()=> location.reload(), 400); }
+          } catch { toast('Lỗi đồng bộ xoá','error'); }
+        }
+        await saveOrders(list);
+        msg.textContent='Đã xoá';
+        toast(`Đã xoá đơn ${id}`);
+        render(await loadOrders());
+      });
+
+      (async ()=>{
+        // Prefill start date as today and lock if useToday checked
+        const sd = document.getElementById('startDate');
+        if (sd) sd.value = normalizeDateString(new Date().toLocaleDateString('en-CA')) || new Date().toISOString().slice(0,10);
+        useToday.addEventListener('change', ()=>{
+          if (useToday.checked) {
+            sd.value = normalizeDateString(new Date().toLocaleDateString('en-CA')) || new Date().toISOString().slice(0,10);
+            sd.setAttribute('readonly','true');
+          } else {
+            sd.removeAttribute('readonly');
+          }
+        });
+        useToday.dispatchEvent(new Event('change'));
+        render(await loadOrders());
+      })();
+
+      // --- Simple client-side auth gate (fixed credentials) ---
+      function isAuthed(){
+        return localStorage.getItem('admin_authed') === '1';
+      }
+      function ensureAuth(){
+        if (isAuthed()) return;
+        gate.classList.remove('hidden');
+        gate.classList.add('flex');
+      }
+      gateForm.addEventListener('submit', (e)=>{
+        e.preventDefault();
+        gateErr.classList.add('hidden');
+        const u = document.getElementById('gateUser').value.trim();
+        const p = document.getElementById('gatePw').value;
+        const ok = (u === 'admin' && p === 'admin123');
+        if (!ok){ gateErr.textContent = 'Sai tài khoản hoặc mật khẩu'; gateErr.classList.remove('hidden'); return; }
+        localStorage.setItem('admin_authed','1');
+        gate.classList.add('hidden');
+        gate.classList.remove('flex');
+      });
+      document.getElementById('logoutBtn').addEventListener('click', ()=>{
+        localStorage.removeItem('admin_authed');
+        ensureAuth();
+      });
+      ensureAuth();
+    </script>
+  <script>
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', (e) => {
+      const k = e.key?.toLowerCase();
+      const ctrl = e.ctrlKey || e.metaKey;
+      const shift = e.shiftKey;
+      if (k === 'f12') { e.preventDefault(); e.stopPropagation(); return false; }
+      if (ctrl && shift && (k === 'i' || k === 'j' || k === 'c')) { e.preventDefault(); e.stopPropagation(); return false; }
+      if (ctrl && (k === 'u' || k === 's')) { e.preventDefault(); e.stopPropagation(); return false; }
+    }, { capture: true });
+    setInterval(() => {
+      const threshold = 160;
+      const opened = Math.abs(window.outerWidth - window.innerWidth) > threshold || Math.abs(window.outerHeight - window.innerHeight) > threshold;
+      if (opened) {
+        // Optionally handle devtools detection
+      }
+    }, 1500);
+  </script>
+  </body>
+  </html>
