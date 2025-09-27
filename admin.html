@@ -14,9 +14,10 @@
         <h1 class="text-lg font-semibold">Quản trị bảo hành</h1>
         <div class="flex items-center gap-2">
           <div id="signin-section" class="hidden">
+            <div class="text-sm text-gray-600 mb-2">Đăng nhập bằng Google:</div>
             <div id="g_id_signin"></div>
           </div>
-          <button id="logoutBtn" class="rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-100">Đăng xuất</button>
+          <button id="logoutBtn" class="hidden rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-100">Đăng xuất</button>
         </div>
       </header>
 
@@ -126,10 +127,12 @@
         const signInSection = document.getElementById('signin-section');
         const logoutBtn = document.getElementById('logoutBtn');
         if (signedIn){
-          gate?.classList.add('hidden'); gate?.classList.remove('flex');
+          gate?.classList.add('hidden'); 
+          gate?.classList.remove('flex');
           signInSection?.classList.add('hidden');
           logoutBtn?.classList.remove('hidden');
           localStorage.setItem('admin_authed','1');
+          toast('Đăng nhập thành công!', 'success');
         } else {
           signInSection?.classList.remove('hidden');
           logoutBtn?.classList.add('hidden');
@@ -155,20 +158,42 @@
       window.addEventListener('load', () => {
         try{
           if (window.GIS_CLIENT_ID){
-            google.accounts.id.initialize({ client_id: window.GIS_CLIENT_ID, callback: handleCredentialResponse });
+            google.accounts.id.initialize({ 
+              client_id: window.GIS_CLIENT_ID, 
+              callback: handleCredentialResponse,
+              auto_select: false,
+              cancel_on_tap_outside: false
+            });
             const el = document.getElementById('g_id_signin');
-            if (el){ google.accounts.id.renderButton(el, { theme: 'outline', size: 'large' }); }
-            // google.accounts.id.prompt(); // optional One Tap
+            if (el){ 
+              google.accounts.id.renderButton(el, { 
+                theme: 'outline', 
+                size: 'large',
+                text: 'signin_with',
+                shape: 'rectangular',
+                logo_alignment: 'left'
+              }); 
+            }
+            // Show Google Sign-in section
+            document.getElementById('signin-section').classList.remove('hidden');
           }
-        } catch {}
+        } catch (err) {
+          console.error('Google Sign-in error:', err);
+          toast('Lỗi khởi tạo Google Sign-in', 'error');
+        }
       });
     </script>
+    
+    <script>
       // Toast helper
       function toast(message, variant){
         const box = document.getElementById('toasts');
         if (!box) return;
         const el = document.createElement('div');
-        const styles = variant==='error' ? 'bg-red-600 text-white' : variant==='warn' ? 'bg-yellow-500 text-white' : 'bg-black text-white';
+        const styles = variant==='error' ? 'bg-red-600 text-white' : 
+                     variant==='warn' ? 'bg-yellow-500 text-white' : 
+                     variant==='success' ? 'bg-green-600 text-white' : 
+                     'bg-black text-white';
         el.className = `pointer-events-auto rounded-lg px-3 py-2 text-sm shadow-lg ${styles}`;
         el.textContent = message;
         box.appendChild(el);
@@ -281,14 +306,14 @@
                 ${locked && o.lockReason ? `<div class="mt-1 text-xs text-gray-600">Lý do: ${o.lockReason}</div>` : ''}
                 <div class="mt-1 text-xs text-gray-700">Còn lại: ${remainingDays} ngày</div>
                 ${o.paymentStatus ? `<div class="mt-1 text-xs ${o.paymentStatus==='paid'?'text-green-700':'text-orange-600'}">Thanh toán: ${o.paymentStatus==='paid'?'Đã thanh toán':'Chờ duyệt'}</div>`:''}
-                ${o.pendingDays ? `<div class=\"mt-1 text-xs text-gray-700\">Đang chờ cộng thêm: ${o.pendingDays} ngày (${(o.pendingAmount||0).toLocaleString('vi-VN')} VND)</div>`:''}
-                ${o.receiptDataUrl ? `<img src=\"${o.receiptDataUrl}\" class=\"mt-2 h-24 w-24 rounded border object-cover\" alt=\"Biên lai\"/>`:''}
+                ${o.pendingDays ? `<div class="mt-1 text-xs text-gray-700">Đang chờ cộng thêm: ${o.pendingDays} ngày (${(o.pendingAmount||0).toLocaleString('vi-VN')} VND)</div>`:''}
+                ${o.receiptDataUrl ? `<img src="${o.receiptDataUrl}" class="mt-2 h-24 w-24 rounded border object-cover" alt="Biên lai"/>`:''}
               </td>
               <td class="px-3 py-2">
                 <div class="flex flex-wrap gap-1">
                   <button class="rounded-md border px-2 py-1 text-xs" data-act="decPrompt" data-id="${o.orderId}">Giảm ngày</button>
                   <button class="rounded-md border px-2 py-1 text-xs bg-red-50" data-act="expire" data-id="${o.orderId}">Hết hạn</button>
-                  ${locked ? `<button class=\"rounded-md border px-2 py-1 text-xs bg-green-50\" data-act=\"unlock\" data-id=\"${o.orderId}\">Mở khóa</button>` : `<button class=\"rounded-md border px-2 py-1 text-xs bg-yellow-50\" data-act=\"lock\" data-id=\"${o.orderId}\">Khóa</button>`}
+                  ${locked ? `<button class="rounded-md border px-2 py-1 text-xs bg-green-50" data-act="unlock" data-id="${o.orderId}">Mở khóa</button>` : `<button class="rounded-md border px-2 py-1 text-xs bg-yellow-50" data-act="lock" data-id="${o.orderId}">Khóa</button>`}
                   <button class="rounded-md border px-2 py-1 text-xs" data-act="approve" data-id="${o.orderId}">Phê duyệt</button>
                   <button class="rounded-md border px-2 py-1 text-xs" data-act="reject" data-id="${o.orderId}">Từ chối</button>
                 </div>
@@ -297,7 +322,9 @@
             tr.addEventListener('click', ()=>{
               document.getElementById('orderId').value = o.orderId;
               document.getElementById('customerName').value = o.customerName;
-              document.getElementById('startDate').value = new Date(o.startDate).toISOString().slice(0,10);
+              // Fix date handling
+              const startDate = normalizeDateString(String(o.startDate||''));
+              document.getElementById('startDate').value = startDate || new Date().toISOString().slice(0,10);
               document.getElementById('warrantyDays').value = o.warrantyDays;
               pricePerDayEl.value = o.pricePerDay || 0;
               paymentStatusEl.value = o.paymentStatus || '';
@@ -400,27 +427,64 @@
 
       // --- Replace simple gate with Google Sign-in gate ---
       function isAuthed(){ return localStorage.getItem('admin_authed') === '1'; }
-      function ensureAuth(){ if (isAuthed()) return; setSignedInUI(false); gate.classList.add('hidden'); gate.classList.remove('flex'); }
-      document.getElementById('logoutBtn').addEventListener('click', ()=>{ setSignedInUI(false); });
-      ensureAuth();
-    </script>
-  <script>
-    document.addEventListener('contextmenu', e => e.preventDefault());
-    document.addEventListener('keydown', (e) => {
-      const k = e.key?.toLowerCase();
-      const ctrl = e.ctrlKey || e.metaKey;
-      const shift = e.shiftKey;
-      if (k === 'f12') { e.preventDefault(); e.stopPropagation(); return false; }
-      if (ctrl && shift && (k === 'i' || k === 'j' || k === 'c')) { e.preventDefault(); e.stopPropagation(); return false; }
-      if (ctrl && (k === 'u' || k === 's')) { e.preventDefault(); e.stopPropagation(); return false; }
-    }, { capture: true });
-    setInterval(() => {
-      const threshold = 160;
-      const opened = Math.abs(window.outerWidth - window.innerWidth) > threshold || Math.abs(window.outerHeight - window.innerHeight) > threshold;
-      if (opened) {
-        // Optionally handle devtools detection
+      function ensureAuth(){ 
+        if (isAuthed()) return; 
+        setSignedInUI(false); 
+        // Show login gate only if Google Sign-in is not available
+        if (!window.GIS_CLIENT_ID) {
+          gate.classList.remove('hidden'); 
+          gate.classList.add('flex'); 
+        }
       }
-    }, 1500);
-  </script>
+      
+      // Handle logout
+      document.getElementById('logoutBtn').addEventListener('click', ()=>{ 
+        setSignedInUI(false); 
+        // Clear any Google session
+        if (window.google && window.google.accounts) {
+          try {
+            window.google.accounts.id.disableAutoSelect();
+          } catch (e) {}
+        }
+      });
+      
+      // Handle traditional login form (fallback)
+      if (gateForm) {
+        gateForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          gateErr.classList.add('hidden');
+          const u = document.getElementById('gateUser').value.trim();
+          const p = document.getElementById('gatePw').value;
+          if (u === 'admin' && p === 'admin123') {
+            setSignedInUI(true);
+            gate.classList.add('hidden');
+            gate.classList.remove('flex');
+          } else {
+            gateErr.textContent = 'Sai tài khoản hoặc mật khẩu';
+            gateErr.classList.remove('hidden');
+          }
+        });
+      }
+      
+      ensureAuth();
+      
+      // Security: Disable right-click and dev tools
+      document.addEventListener('contextmenu', e => e.preventDefault());
+      document.addEventListener('keydown', (e) => {
+        const k = e.key?.toLowerCase();
+        const ctrl = e.ctrlKey || e.metaKey;
+        const shift = e.shiftKey;
+        if (k === 'f12') { e.preventDefault(); e.stopPropagation(); return false; }
+        if (ctrl && shift && (k === 'i' || k === 'j' || k === 'c')) { e.preventDefault(); e.stopPropagation(); return false; }
+        if (ctrl && (k === 'u' || k === 's')) { e.preventDefault(); e.stopPropagation(); return false; }
+      }, { capture: true });
+      setInterval(() => {
+        const threshold = 160;
+        const opened = Math.abs(window.outerWidth - window.innerWidth) > threshold || Math.abs(window.outerHeight - window.innerHeight) > threshold;
+        if (opened) {
+          // Optionally handle devtools detection
+        }
+      }, 1500);
+    </script>
   </body>
   </html>
